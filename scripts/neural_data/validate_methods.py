@@ -9,6 +9,10 @@ import matplotlib.pyplot as plt
 from scipy import stats
 from sklearn.decomposition import PCA
 import sys
+import os
+
+# Add parent directory to path for imports
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 from scripts.neural_data.real_data_analysis import (
     jpca_analysis, compute_tangling, load_nlb_mc_maze,
@@ -111,7 +115,14 @@ def test_1_null_hypothesis_permutation(neural_data, n_permutations=20):
     plt.title(f'Permutation Test (p={p_value:.4f})')
     plt.legend()
     plt.grid(True, alpha=0.3)
-    plt.savefig('../../outputs/figs/validation_test1_permutation.png', dpi=150, bbox_inches='tight')
+    
+    # Use absolute path for saving
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.abspath(os.path.join(script_dir, '../..'))
+    output_dir = os.path.join(project_root, 'outputs', 'figs')
+    os.makedirs(output_dir, exist_ok=True)
+    
+    plt.savefig(os.path.join(output_dir, 'validation_test1_permutation.png'), dpi=150, bbox_inches='tight')
     print("  Saved: outputs/figs/validation_test1_permutation.png")
     
     return p_value, null_distribution
@@ -261,7 +272,13 @@ def test_3_cross_validation_stability(neural_data, n_folds=5):
     plt.xticks(x, [f'{i+1}' for i in range(n_folds)])
     plt.legend()
     plt.grid(True, alpha=0.3, axis='y')
-    plt.savefig('../../outputs/figs/validation_test3_crossval.png', dpi=150, bbox_inches='tight')
+    
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.abspath(os.path.join(script_dir, '../..'))
+    output_dir = os.path.join(project_root, 'outputs', 'figs')
+    os.makedirs(output_dir, exist_ok=True)
+    
+    plt.savefig(os.path.join(output_dir, 'validation_test3_crossval.png'), dpi=150, bbox_inches='tight')
     print("  Saved: outputs/figs/validation_test3_crossval.png")
     
     return p_value, rrmd_tanglings, jpca_tanglings
@@ -309,7 +326,13 @@ def test_4_noise_sensitivity(neural_data, noise_levels=np.linspace(0, 0.5, 5)):
     plt.title('Noise Sensitivity')
     plt.legend()
     plt.grid(True, alpha=0.3)
-    plt.savefig('../../outputs/figs/validation_test4_noise.png', dpi=150, bbox_inches='tight')
+    
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.abspath(os.path.join(script_dir, '../..'))
+    output_dir = os.path.join(project_root, 'outputs', 'figs')
+    os.makedirs(output_dir, exist_ok=True)
+    
+    plt.savefig(os.path.join(output_dir, 'validation_test4_noise.png'), dpi=150, bbox_inches='tight')
     print("  Saved: outputs/figs/validation_test4_noise.png")
     
     # Check which is more stable (lower slope)
@@ -412,13 +435,66 @@ def run_all_validation_tests():
     print(f"FINAL SCORE: {tests_passed}/{total_tests} tests passed")
     
     if tests_passed >= 3:
-        print("✓ CONCLUSION: RRMD superiority is SCIENTIFICALLY VALIDATED")
+        conclusion = "RRMD superiority is SCIENTIFICALLY VALIDATED"
+        print(f"✓ CONCLUSION: {conclusion}")
     elif tests_passed >= 2:
-        print("~ CONCLUSION: RRMD shows promise but needs more validation")
+        conclusion = "RRMD shows promise but needs more validation"
+        print(f"~ CONCLUSION: {conclusion}")
     else:
-        print("✗ CONCLUSION: Insufficient evidence for RRMD superiority")
+        conclusion = "Insufficient evidence for RRMD superiority"
+        print(f"✗ CONCLUSION: {conclusion}")
     
     print(f"{'='*70}")
+    
+    # Save validation results to file
+    from datetime import datetime
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.abspath(os.path.join(script_dir, '../..'))
+    results_dir = os.path.join(project_root, 'outputs', 'results')
+    os.makedirs(results_dir, exist_ok=True)
+    results_path = os.path.join(results_dir, 'validation_results.txt')
+    
+    with open(results_path, 'w') as f:
+        f.write("="*70 + "\n")
+        f.write("RRMD Scientific Validation Report\n")
+        f.write("="*70 + "\n")
+        f.write(f"Validation Date: {timestamp}\n")
+        f.write(f"Dataset: {dataset_name}\n")
+        f.write(f"Data Size: {neural_data.shape[0]} neurons × {neural_data.shape[1]} timepoints\n\n")
+        
+        f.write("TEST RESULTS\n")
+        f.write("-" * 70 + "\n\n")
+        
+        f.write("1. Permutation Test (Statistical Significance)\n")
+        f.write(f"   p-value: {p_perm:.4f}\n")
+        f.write(f"   Status: {'PASS' if p_perm < 0.05 else 'FAIL'}\n")
+        f.write(f"   Result: {'Statistically significant difference' if p_perm < 0.05 else 'No significant difference'}\n\n")
+        
+        f.write("2. Ground Truth Recovery (Synthetic Data)\n")
+        f.write(f"   Axis Recovery Error: {gt_results['rrmd_error']:.2f}°\n")
+        f.write(f"   RRMD Tangling: {gt_results['rrmd_tangling']:.4f}\n")
+        f.write(f"   jPCA Tangling: {gt_results['jpca_tangling']:.4f}\n")
+        f.write(f"   Status: {'PASS' if gt_results['rrmd_error'] < 5.0 else 'FAIL'}\n\n")
+        
+        f.write("3. Cross-Validation Stability\n")
+        f.write(f"   p-value: {p_cv:.4f}\n")
+        f.write(f"   Status: {'PASS' if p_cv < 0.05 else 'INCONCLUSIVE'}\n")
+        f.write(f"   Result: {'Consistent across data splits' if p_cv < 0.05 else 'Variable across splits'}\n\n")
+        
+        f.write("4. Noise Robustness\n")
+        f.write(f"   RRMD Sensitivity: {rrmd_slope:.4f}\n")
+        f.write(f"   jPCA Sensitivity: {jpca_slope:.4f}\n")
+        f.write(f"   Status: {'PASS' if abs(rrmd_slope) < abs(jpca_slope) else 'SIMILAR'}\n\n")
+        
+        f.write("=" * 70 + "\n")
+        f.write("SUMMARY\n")
+        f.write("=" * 70 + "\n")
+        f.write(f"Tests Passed: {tests_passed}/{total_tests}\n")
+        f.write(f"Conclusion: {conclusion}\n")
+    
+    print(f"\n✓ Validation report saved to: outputs/results/validation_results.txt")
     
     plt.show()
     return results

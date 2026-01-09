@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 from scipy.stats import norm, kstest, probplot
 from sklearn.decomposition import PCA
 import sys
+import os
 
 
 # ============================================================================
@@ -143,7 +144,14 @@ def test_identifiability_theorem(n_trials=100, noise_levels=np.linspace(0, 0.3, 
     plt.title('Theorem 2.1: Identifiability Under Noise')
     plt.legend()
     plt.grid(True)
-    plt.savefig('../../outputs/figs/theorem_2_1_validation.png', dpi=150, bbox_inches='tight')
+    
+    # Use absolute path for saving
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.abspath(os.path.join(script_dir, '../..'))
+    output_dir = os.path.join(project_root, 'outputs', 'figs')
+    os.makedirs(output_dir, exist_ok=True)
+    
+    plt.savefig(os.path.join(output_dir, 'theorem_2_1_validation.png'), dpi=150, bbox_inches='tight')
     
     # Check if empirical matches theory
     correlation = np.corrcoef(results['axis_error'], results['theory_bound'])[0, 1]
@@ -208,7 +216,13 @@ def test_discrimination_theorem(n_trials=50):
     plt.title('Theorem 2.2: Discrimination Power')
     plt.legend()
     plt.grid(True, alpha=0.3)
-    plt.savefig('../../outputs/figs/theorem_2_2_validation.png', dpi=150, bbox_inches='tight')
+    
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.abspath(os.path.join(script_dir, '../..'))
+    output_dir = os.path.join(project_root, 'outputs', 'figs')
+    os.makedirs(output_dir, exist_ok=True)
+    
+    plt.savefig(os.path.join(output_dir, 'theorem_2_2_validation.png'), dpi=150, bbox_inches='tight')
     
     return ratios
 
@@ -272,7 +286,13 @@ def test_hypothesis_test(n_permutations=1000):
     axes[1].grid(True, alpha=0.3)
     
     plt.tight_layout()
-    plt.savefig('../../outputs/figs/hypothesis_test_validation.png', dpi=150, bbox_inches='tight')
+    
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.abspath(os.path.join(script_dir, '../..'))
+    output_dir = os.path.join(project_root, 'outputs', 'figs')
+    os.makedirs(output_dir, exist_ok=True)
+    
+    plt.savefig(os.path.join(output_dir, 'hypothesis_test_validation.png'), dpi=150, bbox_inches='tight')
     
     return null_distribution, T
 

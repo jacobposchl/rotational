@@ -12,6 +12,9 @@ from scipy.linalg import eig
 import sys
 import os
 
+# Add parent directory to path for imports
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+
 # Import our validation functions
 from scripts.math.math_experiments import (
     compute_pca_axis, 
@@ -119,10 +122,24 @@ def load_nlb_mc_maze():
     """
     print("Attempting to load NLB MC_Maze dataset...")
     
-    nwb_path = "000128/sub-Jenkins/sub-Jenkins_ses-full_desc-train_behavior+ecephys.nwb"
+    # Try multiple possible paths
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.abspath(os.path.join(script_dir, '../..'))
     
-    if not os.path.exists(nwb_path):
-        print(f"  ✗ Data not found at {nwb_path}")
+    possible_paths = [
+        os.path.join(project_root, "raw_data/000128/sub-Jenkins/sub-Jenkins_ses-full_desc-train_behavior+ecephys.nwb"),
+        "raw_data/000128/sub-Jenkins/sub-Jenkins_ses-full_desc-train_behavior+ecephys.nwb",
+        "000128/sub-Jenkins/sub-Jenkins_ses-full_desc-train_behavior+ecephys.nwb"
+    ]
+    
+    nwb_path = None
+    for path in possible_paths:
+        if os.path.exists(path):
+            nwb_path = path
+            break
+    
+    if nwb_path is None:
+        print(f"  ✗ Data not found in raw_data/000128/")
         return None, None
     
     if not HAS_PYNWB:
@@ -431,8 +448,15 @@ def visualize_comparison(neural_3d, rotation_axis, jpca_result, dataset_name, pc
     plt.suptitle(f'RRMD vs jPCA: {dataset_name}', fontsize=16, fontweight='bold', y=0.995)
     plt.tight_layout()
     
+    # Use absolute path for saving
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.abspath(os.path.join(script_dir, '../..'))
+    output_dir = os.path.join(project_root, 'outputs', 'figs')
+    os.makedirs(output_dir, exist_ok=True)
+    
     filename = dataset_name.replace(' ', '_').replace('(', '').replace(')', '').lower()
-    plt.savefig(f'../../outputs/figs/comparison_{filename}.png', dpi=150, bbox_inches='tight')
+    output_path = os.path.join(output_dir, f'comparison_{filename}.png')
+    plt.savefig(output_path, dpi=150, bbox_inches='tight')
     print(f"\n✓ Saved comparison to 'outputs/figs/comparison_{filename}.png'")
 
 
@@ -516,6 +540,50 @@ def main():
         print(f"\n{'='*70}")
         print(f"OVERALL: RRMD wins {rrmd_wins}/{len(results)} datasets")
         print(f"{'='*70}")
+        
+        # Save results to file
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.abspath(os.path.join(script_dir, '../..'))
+        results_dir = os.path.join(project_root, 'outputs', 'results')
+        os.makedirs(results_dir, exist_ok=True)
+        results_path = os.path.join(results_dir, 'real_data_analysis_results.txt')
+        
+        with open(results_path, 'w') as f:
+            f.write("="*70 + "\n")
+            f.write("RRMD vs jPCA: Real Neural Data Analysis\n")
+            f.write("="*70 + "\n")
+            f.write(f"Analysis Date: {timestamp}\n\n")
+            
+            for name, result in results.items():
+                rrmd_better = result['tangling_rrmd'] < result['tangling_jpca']
+                winner = "RRMD" if rrmd_better else "jPCA"
+                improvement = abs(result['tangling_jpca'] - result['tangling_rrmd']) / result['tangling_jpca'] * 100
+                
+                f.write(f"Dataset: {name.upper()}\n")
+                f.write("-" * 70 + "\n")
+                f.write(f"  Neurons analyzed: {result['pca'].n_features_in_}\n")
+                f.write(f"  Timepoints: {result['neural_3d'].shape[1]}\n")
+                f.write(f"  Variance in 3D: {result['variance_explained']:.1f}%\n\n")
+                f.write(f"  RRMD Results:\n")
+                f.write(f"    - Symmetry Score: {result['symmetry_score']:.4f}\n")
+                f.write(f"    - Tangling: {result['tangling_rrmd']:.4f}\n\n")
+                f.write(f"  jPCA Results:\n")
+                f.write(f"    - Rotation Frequency: {result['jpca']['rotation_freq']:.4f}\n")
+                f.write(f"    - Tangling: {result['tangling_jpca']:.4f}\n\n")
+                f.write(f"  Winner: {winner} ({improvement:.1f}% improvement)\n\n")
+            
+            f.write("=" * 70 + "\n")
+            f.write("OVERALL SUMMARY\n")
+            f.write("=" * 70 + "\n")
+            f.write(f"Datasets Analyzed: {len(results)}\n")
+            f.write(f"RRMD Wins: {rrmd_wins}\n")
+            f.write(f"jPCA Wins: {jpca_wins}\n")
+            f.write(f"Success Rate: {rrmd_wins/len(results)*100:.1f}%\n")
+        
+        print(f"\n✓ Results saved to: outputs/results/real_data_analysis_results.txt")
     
     plt.show()
     return results
