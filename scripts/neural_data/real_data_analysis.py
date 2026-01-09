@@ -274,15 +274,25 @@ def analyze_with_rrmd(neural_data, dataset_name, n_components=3):
     conditions = validate_neural_conditions(neural_data)
     
     # Step 2: Dimensionality reduction
-    print("\n[2/5] Reducing to 3D via PCA...")
-    pca = PCA(n_components=n_components)
-    neural_3d = pca.fit_transform(neural_data.T).T
+    print("\n[2/5] Reducing dimensionality via PCA...")
+    # Standard practice: reduce to 6-10 dimensions first (removes noise)
+    pca_full = PCA(n_components=10)
+    neural_reduced = pca_full.fit_transform(neural_data.T).T
     
-    variance_explained = np.sum(pca.explained_variance_ratio_[:3]) * 100
-    print(f"  Variance explained by 3 PCs: {variance_explained:.1f}%")
+    variance_explained_full = np.sum(pca_full.explained_variance_ratio_) * 100
+    print(f"  Variance explained by 10 PCs: {variance_explained_full:.1f}%")
+    
+    # Further reduce to 3D for RRMD visualization
+    pca_3d = PCA(n_components=3)
+    neural_3d = pca_3d.fit_transform(neural_reduced.T).T
+    variance_explained_3d = np.sum(pca_3d.explained_variance_ratio_[:3]) * 100
+    print(f"  Variance explained by top 3 PCs: {variance_explained_3d:.1f}% of reduced space")
     
     # Step 3: RRMD analysis
     print("\n[3/5] RRMD: Detecting rotation axis...")
+    # Note: We use PC3 (smallest variance direction) as rotation axis candidate
+    # For true rotational dynamics (like a torus), this should align with rotation
+    # For arbitrary data, this is just the 3rd principal component
     rotation_axis = compute_pca_axis(neural_3d.T)
     symmetry_score = compute_rotational_symmetry(neural_3d.T, rotation_axis)
     
@@ -291,32 +301,47 @@ def analyze_with_rrmd(neural_data, dataset_name, n_components=3):
     
     # Step 4: jPCA comparison
     print("\n[4/5] jPCA: Finding rotational dynamics...")
-    jpca_result = jpca_analysis(neural_data)
+    # Fair comparison: apply jPCA to same reduced space
+    jpca_result = jpca_analysis(neural_reduced, n_components=2)
     print(f"  Rotation frequency: {jpca_result['rotation_freq']:.4f}")
     print(f"  Rotation strength: {jpca_result['rotation_strength']:.4f}")
     
-    # Step 5: Compute metrics
+    # Step 5: Compute metrics IN SAME DIMENSIONAL SPACE
     print("\n[5/5] Computing comparison metrics...")
     
-    # Tangling
-    tangling_rrmd = compute_tangling(neural_3d.T)
+    # Project both to 2D plane for fair comparison
+    # RRMD: project to plane perpendicular to rotation axis
+    neural_centered = neural_3d.T - np.mean(neural_3d.T, axis=0)
+    projection_along_axis = np.outer(neural_centered @ rotation_axis, rotation_axis)
+    rrmd_plane = neural_centered - projection_along_axis
+    
+    # Use first 2 components of RRMD plane
+    pca_plane = PCA(n_components=2)
+    rrmd_2d = pca_plane.fit_transform(rrmd_plane)
+    
+    # Tangling in 2D for both methods
+    tangling_rrmd = compute_tangling(rrmd_2d)
     tangling_jpca = compute_tangling(jpca_result['projected'])
     
-    print(f"  Tangling (RRMD): {tangling_rrmd:.4f}")
-    print(f"  Tangling (jPCA): {tangling_jpca:.4f}")
+    print(f"  Tangling (RRMD 2D plane): {tangling_rrmd:.4f}")
+    print(f"  Tangling (jPCA 2D plane): {tangling_jpca:.4f}")
+    print(f"  Note: Both computed in 2D for fair comparison")
     
     # Visualization
-    visualize_comparison(neural_3d, rotation_axis, jpca_result, dataset_name, pca,
+    visualize_comparison(neural_3d, rotation_axis, jpca_result, dataset_name, pca_full,
                         symmetry_score, tangling_rrmd, tangling_jpca)
     
     return {
         'conditions': conditions,
-        'pca': pca,
+        'pca_full': pca_full,
+        'pca_3d': pca_3d,
+        'neural_reduced': neural_reduced,
         'neural_3d': neural_3d,
         'rotation_axis': rotation_axis,
         'symmetry_score': symmetry_score,
-        'variance_explained': variance_explained,
+        'variance_explained': variance_explained_3d,
         'jpca': jpca_result,
+        'rrmd_2d': rrmd_2d,
         'tangling_rrmd': tangling_rrmd,
         'tangling_jpca': tangling_jpca
     }
@@ -564,9 +589,9 @@ def main():
                 
                 f.write(f"Dataset: {name.upper()}\n")
                 f.write("-" * 70 + "\n")
-                f.write(f"  Neurons analyzed: {result['pca'].n_features_in_}\n")
+                f.write(f"  Neurons analyzed: {result['pca_full'].n_features_in_}\n")
                 f.write(f"  Timepoints: {result['neural_3d'].shape[1]}\n")
-                f.write(f"  Variance in 3D: {result['variance_explained']:.1f}%\n\n")
+                f.write(f"  Variance in top 3 PCs: {result['variance_explained']:.1f}%\n\n")
                 f.write(f"  RRMD Results:\n")
                 f.write(f"    - Symmetry Score: {result['symmetry_score']:.4f}\n")
                 f.write(f"    - Tangling: {result['tangling_rrmd']:.4f}\n\n")

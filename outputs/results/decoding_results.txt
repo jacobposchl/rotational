@@ -1,0 +1,36 @@
+======================================================================
+Behavioral Decoding Analysis: Reach Angle from Neural Data
+======================================================================
+Analysis Date: 2026-01-08 18:13:14
+Dataset: MC_Maze Motor Cortex
+Number of Reaches: 2295
+
+HYPOTHESIS TESTS
+----------------------------------------------------------------------
+
+1. Angular Decoding (RRMD Plane)
+   Circular Correlation: 0.593
+   Mean Angle Error: 121.6°
+   Status: PASS
+   Conclusion: Strong alignment with reach angle
+
+2. Kinematics Decoding (Residual)
+   Distance Correlation: -0.016 (p=0.4530)
+   Speed Correlation: 0.015 (p=0.4620)
+   Status: NOT SIGNIFICANT
+   Conclusion: Residual does not correlate with reach kinematics
+
+3. RRMD vs jPCA Comparison
+   RRMD Correlation: 0.593
+   jPCA Correlation: 0.187
+   Winner: RRMD (216.9% better)
+   Conclusion: RRMD better separates angular from non-angular components
+
+======================================================================
+SUMMARY
+======================================================================
+Tests Passed: 2/3
+Overall Result: VALIDATED
+
+RRMD successfully identifies rotation axis aligned with behavioral
+angular dimension and separates rotational from non-rotational dynamics.

@@ -48,15 +48,25 @@ def test_1_null_hypothesis_permutation(neural_data, n_permutations=20):
         subsample_idx = np.linspace(0, preprocessed.shape[1]-1, 10000, dtype=int)
         preprocessed = preprocessed[:, subsample_idx]
     
-    # Reduce to 3D
+    # Reduce to 6D first (standard practice), then to 3D for RRMD
+    pca_full = PCA(n_components=6)
+    neural_reduced = pca_full.fit_transform(preprocessed.T).T
+    
     pca = PCA(n_components=3)
-    neural_3d = pca.fit_transform(preprocessed.T).T
+    neural_3d = pca.fit_transform(neural_reduced.T).T
     
     # Real data comparison
     axis_real = compute_pca_axis(neural_3d.T)
-    tangling_rrmd_real = compute_tangling(neural_3d.T)
     
-    jpca_real = jpca_analysis(preprocessed)
+    # Project to 2D plane for fair comparison
+    neural_centered = neural_3d.T - np.mean(neural_3d.T, axis=0)
+    projection_along_axis = np.outer(neural_centered @ axis_real, axis_real)
+    rrmd_plane = neural_centered - projection_along_axis
+    pca_plane = PCA(n_components=2)
+    rrmd_2d = pca_plane.fit_transform(rrmd_plane)
+    tangling_rrmd_real = compute_tangling(rrmd_2d)
+    
+    jpca_real = jpca_analysis(neural_reduced, n_components=2)
     tangling_jpca_real = compute_tangling(jpca_real['projected'])
     
     diff_real = tangling_jpca_real - tangling_rrmd_real
@@ -77,13 +87,18 @@ def test_1_null_hypothesis_permutation(neural_data, n_permutations=20):
         perm_idx = np.random.permutation(neural_3d.shape[1])
         neural_3d_perm = neural_3d[:, perm_idx]
         
-        # Compute metrics
+        # Compute metrics in 2D
         axis_perm = compute_pca_axis(neural_3d_perm.T)
-        tangling_rrmd_perm = compute_tangling(neural_3d_perm.T)
+        neural_centered_perm = neural_3d_perm.T - np.mean(neural_3d_perm.T, axis=0)
+        projection_perm = np.outer(neural_centered_perm @ axis_perm, axis_perm)
+        rrmd_plane_perm = neural_centered_perm - projection_perm
+        pca_plane_perm = PCA(n_components=2)
+        rrmd_2d_perm = pca_plane_perm.fit_transform(rrmd_plane_perm)
+        tangling_rrmd_perm = compute_tangling(rrmd_2d_perm)
         
         # jPCA on permuted data
-        preprocessed_perm = preprocessed[:, perm_idx]
-        jpca_perm = jpca_analysis(preprocessed_perm)
+        neural_reduced_perm = neural_reduced[:, perm_idx]
+        jpca_perm = jpca_analysis(neural_reduced_perm, n_components=2)
         tangling_jpca_perm = compute_tangling(jpca_perm['projected'])
         
         diff_perm = tangling_jpca_perm - tangling_rrmd_perm
@@ -158,21 +173,32 @@ def test_2_synthetic_ground_truth():
     print(f"\nSynthetic data: {n_neurons} neurons, {n_timepoints} timepoints")
     print(f"True rotation axis: {true_axis}")
     
-    # RRMD analysis
-    pca = PCA(n_components=3)
-    neural_3d = pca.fit_transform(neural_data.T).T
+    # Reduce to 6D first, then to 3D (same as real analysis)
+    pca_full = PCA(n_components=6)
+    neural_reduced = pca_full.fit_transform(neural_data.T).T
     
+    pca = PCA(n_components=3)
+    neural_3d = pca.fit_transform(neural_reduced.T).T
+    
+    # RRMD analysis
     rrmd_axis = compute_pca_axis(neural_3d.T)
-    rrmd_error = np.arccos(np.abs(np.dot(rrmd_axis, true_axis))) * 180 / np.pi
-    rrmd_tangling = compute_tangling(neural_3d.T)
+    rrmd_error = np.arccos(np.clip(np.abs(np.dot(rrmd_axis, true_axis)), -1.0, 1.0)) * 180 / np.pi
+    
+    # Compute tangling in 2D plane for fair comparison
+    neural_centered = neural_3d.T - np.mean(neural_3d.T, axis=0)
+    projection_along_axis = np.outer(neural_centered @ rrmd_axis, rrmd_axis)
+    rrmd_plane = neural_centered - projection_along_axis
+    pca_plane = PCA(n_components=2)
+    rrmd_2d = pca_plane.fit_transform(rrmd_plane)
+    rrmd_tangling = compute_tangling(rrmd_2d)
     
     print(f"\nRRMD:")
     print(f"  Recovered axis: [{rrmd_axis[0]:.3f}, {rrmd_axis[1]:.3f}, {rrmd_axis[2]:.3f}]")
     print(f"  Error from truth: {rrmd_error:.2f}°")
-    print(f"  Tangling: {rrmd_tangling:.4f}")
+    print(f"  Tangling (2D plane): {rrmd_tangling:.4f}")
     
-    # jPCA analysis
-    jpca_result = jpca_analysis(neural_data)
+    # jPCA analysis (on reduced data)
+    jpca_result = jpca_analysis(neural_reduced, n_components=2)
     jpca_tangling = compute_tangling(jpca_result['projected'])
     
     # jPCA finds a plane, not an axis directly
@@ -207,6 +233,10 @@ def test_3_cross_validation_stability(neural_data, n_folds=5):
     preprocessed = preprocess_neural_data(neural_data, smooth_sigma=2)
     n_timepoints = preprocessed.shape[1]
     fold_size = n_timepoints // n_folds
+    
+    # Reduce to 6D first
+    pca_full = PCA(n_components=6)
+    neural_reduced = pca_full.fit_transform(preprocessed.T).T
     
     rrmd_tanglings = []
     jpca_tanglings = []
@@ -294,6 +324,10 @@ def test_4_noise_sensitivity(neural_data, noise_levels=np.linspace(0, 0.5, 5)):
     
     preprocessed = preprocess_neural_data(neural_data, smooth_sigma=2)
     
+    # Reduce to 6D first
+    pca_full = PCA(n_components=6)
+    neural_reduced = pca_full.fit_transform(preprocessed.T).T
+    
     rrmd_results = []
     jpca_results = []
     
@@ -301,17 +335,24 @@ def test_4_noise_sensitivity(neural_data, noise_levels=np.linspace(0, 0.5, 5)):
     
     for noise_level in noise_levels:
         # Add noise
-        noise = np.random.randn(*preprocessed.shape) * noise_level * np.std(preprocessed)
-        noisy_data = preprocessed + noise
+        noise = np.random.randn(*neural_reduced.shape) * noise_level * np.std(neural_reduced)
+        noisy_data = neural_reduced + noise
         
-        # RRMD
+        # RRMD: reduce to 3D then to 2D plane
         pca = PCA(n_components=3)
         neural_3d = pca.fit_transform(noisy_data.T).T
-        tangling_rrmd = compute_tangling(neural_3d.T)
+        axis = compute_pca_axis(neural_3d.T)
+        
+        neural_centered = neural_3d.T - np.mean(neural_3d.T, axis=0)
+        projection_along_axis = np.outer(neural_centered @ axis, axis)
+        rrmd_plane = neural_centered - projection_along_axis
+        pca_plane = PCA(n_components=2)
+        rrmd_2d = pca_plane.fit_transform(rrmd_plane)
+        tangling_rrmd = compute_tangling(rrmd_2d)
         rrmd_results.append(tangling_rrmd)
         
         # jPCA
-        jpca_result = jpca_analysis(noisy_data)
+        jpca_result = jpca_analysis(noisy_data, n_components=2)
         tangling_jpca = compute_tangling(jpca_result['projected'])
         jpca_results.append(tangling_jpca)
         

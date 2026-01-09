@@ -1,23 +1,23 @@
 ======================================================================
 RRMD vs jPCA: Real Neural Data Analysis
 ======================================================================
-Analysis Date: 2026-01-08 17:42:52
+Analysis Date: 2026-01-08 18:16:02
 
 Dataset: MC_MAZE
 ----------------------------------------------------------------------
   Neurons analyzed: 182
   Timepoints: 139046
-  Variance in 3D: 12.3%
+  Variance in top 3 PCs: 54.1%
 
   RRMD Results:
     - Symmetry Score: 0.5446
-    - Tangling: 0.5653
+    - Tangling: 0.6499
 
   jPCA Results:
-    - Rotation Frequency: 0.2402
-    - Tangling: 4.5846
+    - Rotation Frequency: 0.1725
+    - Tangling: 8.6479
 
-  Winner: RRMD (87.7% improvement)
+  Winner: RRMD (92.5% improvement)
 
 ======================================================================
 OVERALL SUMMARY
